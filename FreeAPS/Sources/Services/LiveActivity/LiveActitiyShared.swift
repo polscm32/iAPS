@@ -7,6 +7,8 @@ struct LiveActivityAttributes: ActivityAttributes {
         let trendSystemImage: String?
         let change: String
         let date: Date
+        let sixHourReadingsGlucose: [Decimal?]
+        let sixHourReadingsDate: [Date?]
     }
 
     let startDate: Date

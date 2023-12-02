@@ -21,7 +21,7 @@ extension LiveActivityAttributes.ContentState {
             .string(from: mmol ? value.asMmolL as NSNumber : NSNumber(value: value))!
     }
 
-    init?(new bg: BloodGlucose, prev: BloodGlucose?, mmol: Bool) {
+    init?(new bg: BloodGlucose, prev: BloodGlucose?, mmol: Bool, sixHourReadings: [BloodGlucose]) {
         guard let glucose = bg.glucose,
               bg.dateString.timeIntervalSinceNow > -TimeInterval(minutes: 6)
         else {
@@ -62,7 +62,20 @@ extension LiveActivityAttributes.ContentState {
             Self.formatGlucose(glucose - $0, mmol: mmol, forceSign: true)
         }) ?? ""
 
-        self.init(bg: formattedBG, trendSystemImage: trendString, change: change, date: bg.dateString)
+        let sixHourReadingsGlucose: [Decimal?]
+        let sixHourReadingsDate: [Date?]
+
+        sixHourReadingsGlucose = sixHourReadings.map({ mmol ? $0.glucose?.asMmolL : Decimal(Double($0.glucose ?? 0)) })
+        sixHourReadingsDate = sixHourReadings.map(\.dateString)
+
+        self.init(
+            bg: formattedBG,
+            trendSystemImage: trendString,
+            change: change,
+            date: bg.dateString,
+            sixHourReadingsGlucose: sixHourReadingsGlucose,
+            sixHourReadingsDate: sixHourReadingsDate
+        )
     }
 }
 
@@ -97,6 +110,7 @@ extension LiveActivityAttributes.ContentState {
 
     private var currentActivity: ActiveActivity?
     private var latestGlucose: BloodGlucose?
+    private var sixHourReadings: [BloodGlucose]?
 
     init(resolver: Resolver) {
         injectServices(resolver)
@@ -189,15 +203,22 @@ extension LiveActivityBridge: GlucoseObserver {
         // backfill latest glucose if contained in this update
         if glucose.count > 1 {
             latestGlucose = glucose[glucose.count - 2]
+
+            if glucose.count < 73 {
+                sixHourReadings = glucose.dropLast()
+            } else {
+                sixHourReadings = glucose.dropLast().suffix(72)
+            }
         }
         defer {
             self.latestGlucose = glucose.last
         }
 
-        guard let bg = glucose.last, let content = LiveActivityAttributes.ContentState(
+        guard let bg = glucose.last, let historicReadings = sixHourReadings, let content = LiveActivityAttributes.ContentState(
             new: bg,
             prev: latestGlucose,
-            mmol: settings.units == .mmolL
+            mmol: settings.units == .mmolL,
+            sixHourReadings: historicReadings
         ) else {
             // no bg or value stale. Don't update the activity if there already is one, just let it turn stale so that it can still be used once current bg is available again
             return

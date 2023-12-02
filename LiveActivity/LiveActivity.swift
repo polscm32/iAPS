@@ -1,4 +1,5 @@
 import ActivityKit
+import Charts
 import SwiftUI
 import WidgetKit
 
@@ -41,6 +42,21 @@ struct LiveActivity: Widget {
         }
     }
 
+    @ViewBuilder func chart(context: ActivityViewContext<LiveActivityAttributes>) -> some View {
+        if context.isStale {
+            Text("--")
+        } else {
+            Chart {
+                ForEach(context.state.sixHourReadingsGlucose.indices, id: \.self) { index in
+                    LineMark(
+                        x: .value("Time", context.state.sixHourReadingsDate[index] ?? Date()),
+                        y: .value("Value", context.state.sixHourReadingsGlucose[index] ?? 0)
+                    ).foregroundStyle(Color(red: 0.435, green: 0.812, blue: 0.592))
+                }
+            }
+        }
+    }
+
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: LiveActivityAttributes.self) { context in
             // Lock screen/banner UI goes here
@@ -74,8 +90,12 @@ struct LiveActivity: Widget {
                     changeLabel(context: context).font(.title).padding(.trailing, 5)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    updatedLabel(context: context).font(.caption).foregroundStyle(Color.secondary)
-                        .padding(.bottom, 5)
+                    VStack {
+                        updatedLabel(context: context).font(.caption).foregroundStyle(Color.secondary)
+                            .padding(.bottom, 5)
+                        Spacer()
+                        chart(context: context)
+                    }
                 }
             } compactLeading: {
                 HStack(spacing: 1) {
@@ -100,7 +120,18 @@ private extension LiveActivityAttributes {
 
 private extension LiveActivityAttributes.ContentState {
     static var test: LiveActivityAttributes.ContentState {
-        LiveActivityAttributes.ContentState(bg: "100", trendSystemImage: "arrow.right", change: "+2", date: Date())
+        LiveActivityAttributes.ContentState(
+            bg: "100",
+            trendSystemImage: "arrow.right",
+            change: "+2",
+            date: Date(),
+            sixHourReadingsGlucose: [90, 95, 100],
+            sixHourReadingsDate: [
+                Calendar.current.date(byAdding: .minute, value: -15, to: Date()),
+                Calendar.current.date(byAdding: .minute, value: -10, to: Date()),
+                Calendar.current.date(byAdding: .minute, value: -5, to: Date())
+            ]
+        )
     }
 }
 
