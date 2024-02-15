@@ -2,7 +2,7 @@ import Combine
 import LocalAuthentication
 
 protocol UnlockManager {
-    func unlock() -> AnyPublisher<Void, Error>
+    func unlock(_ completion: @escaping (_ success: Bool) -> Void)
 }
 
 struct UnlockError: Error {
@@ -10,31 +10,29 @@ struct UnlockError: Error {
 }
 
 final class BaseUnlockManager: UnlockManager {
-    func unlock() -> AnyPublisher<Void, Error> {
-        Future { promise in
-            let context = LAContext()
-            var error: NSError?
+    func unlock(_ completion: @escaping (_ success: Bool) -> Void) {
+        let context = LAContext()
+        let reason = "We need to make sure you are the owner of the device."
 
-            let handler: (Bool, Error?) -> Void = { success, error in
-                if success {
-                    promise(.success(()))
-                } else {
-                    promise(.failure(UnlockError(error: error)))
+        // Previous implementation had a check for if we can evaluate the policy,
+        // we should probably keep that around
+//        if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
+//        }
+
+        context
+            .evaluatePolicy(
+                LAPolicy.deviceOwnerAuthentication,
+                localizedReason: reason
+            ) { success, _ in
+                DispatchQueue.main.async {
+                    if success {
+                        completion(true)
+                    } else {
+                        completion(false)
+                        print("Failed auth")
+                        return
+                    }
                 }
             }
-
-            let reason = "We need to make sure you are the owner of the device."
-
-            if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
-                context.evaluatePolicy(
-                    .deviceOwnerAuthentication,
-                    localizedReason: reason,
-                    reply: handler
-                )
-            } else {
-                handler(true, nil)
-            }
-        }
-        .eraseToAnyPublisher()
     }
 }

@@ -161,12 +161,11 @@ extension DataTable {
         }
 
         func deleteInsulin(_ treatment: Treatment) {
-            unlockmanager.unlock()
-                .sink { _ in } receiveValue: { [weak self] _ in
-                    guard let self = self else { return }
+            unlockmanager.unlock { authenticated in
+                if authenticated {
                     self.provider.deleteInsulin(treatment)
                 }
-                .store(in: &lifetime)
+            }
         }
 
         func deleteGlucose(_ glucose: Glucose) {
@@ -226,16 +225,15 @@ extension DataTable {
             }
 
             externalInsulinAmount = min(externalInsulinAmount, maxBolus * 3) // Allow for 3 * Max Bolus for external insulin
-            unlockmanager.unlock()
-                .sink { _ in } receiveValue: { [weak self] _ in
-                    guard let self = self else { return }
-                    pumpHistoryStorage.storeEvents(
+            unlockmanager.unlock { authenticated in
+                if authenticated {
+                    self.pumpHistoryStorage.storeEvents(
                         [
                             PumpHistoryEvent(
                                 id: UUID().uuidString,
                                 type: .bolus,
-                                timestamp: externalInsulinDate,
-                                amount: externalInsulinAmount,
+                                timestamp: self.externalInsulinDate,
+                                amount: self.externalInsulinAmount,
                                 duration: nil,
                                 durationMin: nil,
                                 rate: nil,
@@ -248,9 +246,9 @@ extension DataTable {
                     debug(.default, "External insulin saved to pumphistory.json")
 
                     // Reset amount to 0 for next entry.
-                    externalInsulinAmount = 0
+                    self.externalInsulinAmount = 0
                 }
-                .store(in: &lifetime)
+            }
         }
     }
 }

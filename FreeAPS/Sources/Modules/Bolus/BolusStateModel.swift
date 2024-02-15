@@ -241,13 +241,12 @@ extension Bolus {
 
             let maxAmount = Double(min(amount, provider.pumpSettings().maxBolus))
 
-            unlockmanager.unlock()
-                .sink { _ in } receiveValue: { [weak self] _ in
-                    guard let self = self else { return }
+            unlockmanager.unlock { authenticated in
+                if authenticated {
                     self.apsManager.enactBolus(amount: maxAmount, isSMB: false)
                     self.showModal(for: nil)
                 }
-                .store(in: &lifetime)
+            }
         }
 
         func setupInsulinRequired() {
